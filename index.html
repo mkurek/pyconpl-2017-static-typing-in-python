@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Static typing in Python(!)?</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <link type="text/css" href="static/remark.css" rel="stylesheet">
+  </head>
+  <body>
+    <textarea id="source">
+
+class: center, middle, title-slide
+count: false
+# Static typing in Python(!)?
+
+.footnote[Mateusz Kurek
+
+.github[mkurek]
+]
+
+???
+Betteridge's law of headlines is one name for an adage that states: "Any headline that ends in a question mark can be answered by the word no."
+
+---
+class: agenda, with-title
+<!-- ==================== AGENDA ==================== -->
+# Agenda
+
+1. PEP484 & type hints history
+
+???
+
+1. PEP484 i historia type hintów
+2. Dlaczego opis parametrów w docstringach się nie sprawdza
+3. Omówienie składni type hintów (z uwzględnieniem Python2 i Python3) + przykłady
+4. Mypy, czyli optional static type checker - omówienie, konfiguracja + przykłady
+5. Czy type hinty są przeznaczone tylko dla nowych projektów, czy można je również zastosować dla istniejących projektów? Kilka słów o gradual typing, stubach i projekcie "typeshed"
+6. Lessons learned z wykorzystania type hintów w projektach Pythonowych w Allegro
+7. Type hints - hate or love? Podsumowanie i wnioski
+8. Q&A
+--
+
+2. How it was done before type hints?
+
+--
+
+3. Type hints syntax
+
+--
+
+4. Mypy - optional static type checker
+
+--
+
+5. Type hints for existing projects?
+
+--
+
+6. Lessons learned
+
+--
+
+7. Type hints - hate or love? Summary and conclusions
+
+--
+
+8. Q&A
+
+---
+class: with-title
+<!-- ==================== PEP484 ==================== -->
+
+# PEP484
+
+* Everything started from PEP3107 - introduced in Python 3.0
+
+???
+As you probably know every (major) change in python comes through PEP - Python Enhancement Proposal - it couldn't be different this time - it's one of the biggest changes in Python syntax from the very beginning.<br><br>
+
+Rationale:<br>
+* Python's 2.x lacks a standard way of annotating a function's parameters and return values<br>
+* variety of tools and libraries tried to fill this gap.<br>
+  ** Some utilise the decorators<br>
+  ** others parse a function's docstring, looking for annotations there.<br><br>
+
+This PEP aims to provide a <b>single, standard way</b> of specifying this information, reducing the confusion caused by the wide variation in mechanism and syntax that has existed until this point.<br><br>
+
+<hr>
+<b>Semantic was, intentionally, not defined</b> - although no meaning was assigned to annotations then, there has always been an implicit goal to use them for <b>type hinting</b>, which is listed as the first possible use case in PEP 3107.<br><br>
+
+Introduced in 2008. After 7 years, in 2015, type-hints were introduced in Python 3.5.<br><br>
+<hr>
+mypy - created in 2012r, Jukka Lehtosalo - it's THE optional static type checker for python - I'll talk about it later<br><br>
+
+The type system supports unions, <b>generic types</b>, and a special type named <b>Any</b> which is consistent with (i.e. assignable to and from) all types<br><br>
+
+This PEP aims to provide a standard syntax for type annotations, opening up Python code to easier <b>static analysis</b> and <b>refactoring</b>, <b>potential runtime type checking</b>, and (perhaps, in some contexts) code generation utilizing type information.<br><br>
+<hr>
+Python will still remain a dynamically typed language, and the authors have no desire to ever make type hints mandatory, even by convention - these are only type <b>hints</b>. <br><br>
+
+
+--
+
+* PEP3107 introduced syntax for function annotations, but the semantics were left undefined
+
+```
+def testFunc(source: expression, target: expression) -> expression:
+  ...
+```
+
+--
+
+* PEP484 - the next step in standarization of annotations and tools:
+
+  * greatly inspired and based on `mypy`
+
+  * aims to provide a standard syntax for type annotations
+
+  * the most important goal wat potential static analysis
+
+  * **but** Python will still remain a dynamically typed language
+
+---
+class: with-title
+<!-- ==================== Types in docstrings ==================== -->
+
+# The Old (Conservative) Way
+
+```
+def greeting(name):
+    """
+    Say hello
+
+    Args:
+      name (str): name to say hello
+
+    Returns:
+      str: The greeting
+    """
+    return 'Hello ' + name
+```
+
+???
+1. google style (it does not exclude type annotations - types could be ommited in docstring)
+
+2. sphinx, rst
+
+lot of drawbacks:
+* repeating param name
+* in 2: multiline for context and type
+* hard to read
+* potential inconsistency between actual parameters and docstring
+
+**Cure: type hints**
+--
+
+```
+def greeting(name):
+    """
+    Say hello
+
+    :param name: name to say hello
+    :type name: str
+
+    :return: The greeting
+    :rtype: str
+    """
+    return 'Hello ' + name
+```
+
+---
+class: with-title
+<!-- ==================== Type hints syntax ==================== -->
+
+# Type hints: Syntax
+
+python3
+```
+def greeting(name: str) -> str:
+    return 'Hello ' + name
+```
+
+???
+type hinting is used by **filling function annotation slots with classes**
+
+Expressions whose type is a subtype of a specific argument type are also accepted for that argument.
+
+Right now just syntax and types which are result of PEP484
+<hr>
+py2: Docstring always comes after the type comment.
+
+
+--
+
+python2
+```
+def greeting(name):
+  # type: (str) -> None
+  """Docstring comes after type comment."""
+  return 'Hello ' + name
+```
+
+or
+
+```
+def greeting(
+  name,  # type: str
+):
+  # type: (...) -> bool
+  return 'Hello ' + name
+```
+
+---
+class: with-title
+<!-- ==================== Type hints syntax ==================== -->
+
+# Type hints: Syntax
+
+```
+def greeting(name: str, prefix: str = 'Mr.') -> str:
+    return f'Hello {prefix} {name}'
+```
+
+???
+default values
+
+literal string formatting in python 3.6
+
+<hr>
+
+type hints for variables
+
+for str no need to provide type - it would be infered as str
+--
+
+python<=3.5
+```
+foo = []  # type: List[int]
+bar = "abc"  # type: str
+```
+
+--
+
+python3.6
+```
+foo: List[int] = []
+bar: str = "abc"
+```
+
+---
+class: with-title
+<!-- ================= Type hints syntax 2 ================= -->
+
+# Type hints: Kinds of types
+
+Acceptable type hints:
+
+* built-in classes
+
+* abstract base classes
+
+* types available in the `types` module, ex. `IntType`, `SliceType`, `FunctionType`
+
+* user-defined classes
+
+* special constructs (available in `typing` module):
+  * `None`, `Any`, `Union`, `Callable`
+  * `Sequence`, `Tuple`, `List`, `Mapping`, `Dict`
+  * type variables and type aliases
+
+???
+ABC
+
+py2: `pip install typing`
+
+-
+
+Annotations must be valid expressions that **evaluate without raising exceptions** at the time the function is defined.
+
+-
+
+type variables - for generics
+
+-
+
+The following examples will consider Python3, but all of these concepts are
+applicable to Python2 as well, but with comments used instead of function
+annotations syntax
+
+---
+class: with-title
+<!-- ================= Type hints syntax - special constructs ================= -->
+
+# Type hints: Special constructs
+
+* Any
+
+```
+def greeting(name: Any) -> str:
+    return 'Hello ' + str(name)
+```
+
+???
+
+Note that Any and builtin type object are completely different.
+
+<hr>
+
+Union: small, limited set of expected types for a single argument
+
+--
+
+```
+greeting("Mateusz")
+greeting(1)
+greeting([1, 2, 3])
+```
+
+--
+
+* Union
+
+```
+MyItem = Union[int, str]
+
+
+def increase(x: MyItem) -> MyItem:
+    if isinstance(x, str):
+        return x + 'a'
+    else:
+        return x + 1
+```
+
+--
+
+```
+increase(1)
+increase("abc")
+```
+
+---
+class: with-title
+<!-- ================= Type hints syntax - special constructs ================= -->
+
+# Type hints: Optional
+
+```
+from typing import Optional
+
+def greeting(name: Optional[str]) -> str:
+    if name:
+        return 'Hello, {}'.format(name)
+    else:
+        return 'Hello, stranger'
+```
+
+???
+An optional type is also automatically assumed when the default value is None
+
+
+
+--
+
+```
+def greeting(name: Union[str, None]) -> str:
+  ...
+```
+
+--
+
+```
+def greeting(name: str = None) -> str:
+  ...
+```
+
+---
+class: with-title
+<!-- ================= Type hints syntax - special constructs ================= -->
+
+# Type hints: Callables
+
+```
+def apply_callbacks(cbs: List[Callable]) -> None:
+  for callback in cbs:
+    callback()
+```
+
+???
+It is possible to declare the return type of a callable without specifying the call signature by substituting a literal ellipsis (three dots) for the list of arguments:
+
+Since using callbacks with keyword arguments is not perceived as a common use case, there is currently **no support for specifying keyword arguments** with Callable. Similarly, there is **no support for specifying callback signatures with a variable number of argument** of a specific type.
+
+--
+
+```
+def partial(func: Callable[[int, str], str], *args) -> Callable[[int, str], str]:
+    # body
+```
+
+--
+
+```
+def partial(func: Callable[..., str], *args) -> Callable[..., str]:
+    # body
+```
+
+---
+class: with-title
+<!-- ================= Type hints syntax - special constructs ================= -->
+
+# Type hints: Iterables
+
+
+* Sequence
+
+```
+def first(x: Sequence[int]) -> int:
+    return x[0]
+```
+
+???
+
+Usually it’s a better idea to use **Sequence[T]** instead of Tuple[T, ...], as Sequence is also compatible with lists and other non-tuple sequences.
+
+<hr>
+
+iterable vs sequence: sequence inherits from iterable (adds len etc)
+
+<hr>
+
+Tuple without args: Tuple[Any]
+
+<hr>
+
+If t2 is a subtype of t1, then a generic type constructor GenType is called:
+
+Covariant, if GenType[t2] is a subtype of GenType[t1] for all such t1 and t2.
+Contravariant, if GenType[t1] is a subtype of GenType[t2] for all such t1 and t2.
+Invariant, if neither of the above is true.
+
+--
+
+* List
+
+```
+def last(t: List[int]) -> int:
+    return r[-1]
+```
+
+--
+
+* Tuple
+
+```
+def add(t: Tuple[int, float]) -> float:
+    return t[0] + t[1]
+add((2.0, 5))  # error!
+```
+
+--
+
+```
+def greater_than(t: Tuple[int, ...], n: int) -> Tuple[int, ...]:
+    return tuple(x for x in t if x > n)
+
+greater_than((1, 2, 3, 4, 5, 6, 7), 3)
+```
+
+---
+class: with-title
+<!-- ================= Type hints syntax - special constructs ================= -->
+
+# Type hints: Mappings
+
+* Mapping
+
+```
+def keys(m: Mapping[int, str])-> List[int]:
+    return list(m.keys())
+```
+???
+
+could use DefaultDict  too
+
+
+--
+
+* Dict
+
+```
+def sum_of_values(d: Dict[str, int]) -> int:
+  return sum(d.values())
+```
+
+---
+class: with-title
+<!-- ================= Type hints syntax - special constructs ================= -->
+
+# Type hints: Generics
+
+```
+from typing import TypeVar
+
+MyType = TypeVar('MyType')  # Can be anything
+```
+
+???
+**GENERICS!**
+
+Type variables exist primarily for the benefit of static type checkers. They serve as the parameters for **generic types** as well as for **generic function definitions**.
+
+all user-defined generics are invariant
+
+--
+
+```
+Number = TypeVar('Number', int, float, complex)  # Must be int or float or complex
+```
+
+--
+
+```
+def repeat(x: MyType, n: int) -> Sequence[MyType]:
+    return [x] * n
+```
+
+--
+
+```
+def largest(x: Number, y: Number) -> Number:
+    return x if x >= y else y
+```
+
+--
+
+```
+largest(1, 2)  # ok
+largest(1.0, 2.0)  # ok
+largest(1, 2.0)  # error!
+```
+
+--
+
+```
+isinstance(1, Number)  # TypeError!
+issubclass(int, Number)  # True
+```
+
+---
+class: with-title
+<!-- ================= Type hints syntax - generics ================= -->
+# Type hints: Generics
+
+```
+from typing import Generic, TypeVar
+
+T = TypeVar('T')
+
+class Stack(Generic[T]):
+    def __init__(self) -> None:
+        # Create an empty list with items of type T
+        self.items: List[T] = []
+
+    def push(self, item: T) -> None:
+        self.items.append(item)
+
+    def pop(self) -> T:
+        return self.items.pop()
+
+    def empty(self) -> bool:
+        return not self.items
+```
+
+???
+GENERICS!
+
+interesting way to initialize typed generic [int]
+
+variable type in python 3.6
+
+self does not have to be annotated!
+
+<hr>
+
+Type error only during mypy check, not during runtime
+
+--
+
+```
+stack = Stack[int]()
+stack.push(2)
+stack.pop()
+stack.push('x')        # Type error
+```
+
+???
+
+`T` is always the same
+
+---
+class: with-title
+<!-- ================= Type hints syntax - generics ================= -->
+# Type hints: Generics
+
+```
+from typing import Generic, TypeVar
+
+T = TypeVar('T')
+
+class Node(Generic[T]):
+    def __init__(self, label: T = None) -> None:
+        ...
+    x = None  # type: T
+
+x = Node('')  # Inferred type is Node[str]
+y = Node(0)   # Inferred type is Node[int]
+z = Node()    # Inferred type is Node[Any]
+```
+
+
+???
+type is inferred from passed param
+
+In case the inferred type uses [Any] but the intended type is more specific, you can use a type comment (see below) to force the type of the variable
+
+<hr>
+
+Alternatively, you can instantiate a specific concrete type
+
+<hr>
+
+Runtime type (class) is still Node; type erasure
+
+--
+
+```
+a = Node()    # type: Node[int]
+```
+
+--
+
+```
+b = Node[int]()
+```
+
+---
+class: with-title
+<!-- ================= Type hints - args and kwargs ================= -->
+# Type hints: *args and **kwargs
+
+```
+def foo(*args: str, **kwargs: int):
+  ...
+```
+
+`args` deduced as `Tuple[str, ...]`
+
+`kwargs` deduced as `Dict[str, int]`
+
+---
+class: with-title
+<!-- ================= Type hints - infered types ================= -->
+# Type hints: types
+
+* infered types
+
+```
+i = 1           # Infer type int for i
+l = [1, 2]      # Infer type List[int] for l
+```
+
+???
+
+That's all about syntax.
+
+What about exceptions? This part is not covered by PEP484 and typ hints does not support potential raised exceptions (like throws in Java) - the only thing that this PEP suggests is to put them into docstrings/documentation.
+--
+
+* explicit types
+
+```
+x: Union[int, str] = 1
+```
+
+--
+
+* The static types described in PEP 484, should not be confused with the runtime classes
+
+  * `int` is a class and a type
+  * `UserID` is a class and a type
+  * `Union[str, int]` is a type but not a proper class
+
+---
+class: with-title, agenda
+<!-- ================= mypy ================= -->
+
+# mypy
+
+* **optional** static type checker
+
+* external tool - not part of the language
+
+* non-runtime checking - it's (another) lint-like tool
+
+* all errors reported by mypy are essentially warnings that you are free to ignore
+
+* still experimental...
+
+???
+As mypy is a static analyzer, or a lint-like tool, your code’s type annotations are **just hints** and don’t interfere when running your program. You run your program with a standard Python interpreter, and the annotations are treated primarily as comments.
+
+Mypy is still experimental. There will be changes that break backward compatibility.
+
+You may wonder, how can a type checker predict that a type error will occur when a particular program is run? The answer is that it can’t. It is impossible to build a type checker that can predict in general which programs will result in type errors and which will not. (This is equivalent to the well-known halting problem.) Instead, all type checkers make a conservative approximation of what will happen during execution and give error messages for anything that might cause a type error.
+
+--
+
+```
+$ mypy program.py
+```
+
+---
+class: with-title
+<!-- ================= mypy config ================= -->
+# mypy: Configuration
+
+* Support CLI flags or configuration file
+
+???
+
+**None is a valid value for every type**, which resembles null in Java. Unlike Java, mypy doesn’t treat primitives types specially: **None is also valid for primitive types such as int and float**.
+
+--
+
+* Interesting options:
+  * `strict_optional` - strict checking of `Optional[...]` types and `None` values
+  * `ignore_missing_imports` - suppress error messages about imports that cannot be resolved
+  * `disallow_untyped_defs` - disallows defining functions without type annotations or with incomplete type annotations
+  * `disallow_any` - disallow various types of `Any`
+
+--
+
+* mypy.ini:
+
+```
+[mypy]
+python_version = 3.5
+disallow_untyped_defs = True
+ignore_missing_imports = True
+strict_optional = True
+
+[mypy-*/tests/*,*.tests.*]
+disallow_untyped_defs = False
+```
+
+---
+class: with-title
+
+# mypy: strict-optional
+
+```
+MyItem = Union[int, str]
+
+
+def increase(x: MyItem) -> MyItem:
+    if isinstance(x, str):
+        return x + 'a'
+    else:
+        return x + 1
+
+increase(None)
+```
+
+```
+$ mypy test1.py
+# no errors
+```
+
+???
+
+There are plans in the mypy's roadmap to turn strict-optional on by default.
+
+--
+
+```
+$ mypy --strict-optional test1.py
+test1.py:10: error: Argument 1 to "increase" has incompatible type None; expected "Union[int, str]"
+```
+
+---
+class: with-title, agenda
+
+# mypy: Supported Features
+
+* namedtuple
+
+```
+from typing import NamedTuple
+Point = NamedTuple('Point', [('x', int), ('y', int)])
+p = Point(x=1, y='x')  # Argument has incompatible type "str"; expected "int"
+print(p.z)  # Error: Point has no attribute 'z'
+```
+
+--
+
+* TypedDict
+
+```
+from mypy_extensions import TypedDict
+Movie = TypedDict('Movie', {'name': str, 'year': int})
+movie = Movie(name='Toy Story', year=1995)  # returns normal dict
+
+year = movie['year']  # Okay; type of year is int
+director = movie['director']  # Error: 'director' is not a valid key
+```
+
+---
+class: with-title
+
+# mypy: Examples
+
+```
+class A:
+    x = 1
+
+    def f(self) -> int:
+        return 2
+
+
+class B(A):
+    y = 2
+
+    def f(self) -> int:
+        return 3
+
+    def g(self) -> int:
+        return self.x
+
+b = B()  # type: A
+b.g()
+print(b.y)
+```
+
+--
+
+```
+$ mypy test1.py
+```
+
+--
+
+```
+test1.py:20: error: "A" has no attribute "g"
+test1.py:21: error: "A" has no attribute "y"
+```
+
+---
+class: with-title
+
+# mypy: Examples
+
+```
+# test2.py
+from typing import Optional
+
+
+def f(a: Optional[int], b: int) -> int:
+    return b or a
+
+
+f(1, 'x')
+```
+
+--
+
+```
+$ mypy test2.py
+```
+
+--
+
+```
+5: error: Incompatible return value type (got "Optional[int]", expected "int")
+8: error: Argument 2 to "f" has incompatible type "str"; expected "int"
+```
+
+---
+class: with-title
+# mypy: Examples
+
+```
+# test3.py
+from typing import List
+
+
+def f(l: List[object]) -> None:
+    l = [1, 2]  # Infer type List[object] for [1, 2]
+
+
+def g(l: List[str]) -> None:
+    l.append(True)
+    l = [1, 2]
+```
+
+--
+
+```
+$ mypy test3.py
+```
+
+--
+
+```
+9: error: Argument 1 to "append" of "list" has incompatible type "bool"; expected "str"
+10: error: List item 0 has incompatible type "int"
+10: error: List item 1 has incompatible type "int"
+```
+
+---
+class: with-title
+# Gradual typing
+
+* allows parts of a program to be dynamically typed and other parts to be statically typed
+
+???
+
+only part of the program is annotated
+
+Any is consistent with every type.
+Every type is consistent with Any.
+
+--
+
+* programmer controls which parts are which by either leaving out type annotations or by adding them in
+
+--
+
+* programmer can choose between static and dynamic typing without having to switch to a different language and without having to deal with the pain of language interoperability
+
+--
+
+* heavily use the assumption that everything is `Any`
+
+---
+class: with-title
+# Stub files
+
+* files containing type hints that are only for use by the type checker
+
+--
+
+* use cases:
+  * extension modules
+  * third-party modules whose authors have not yet added type hints
+  * standard library modules for which type hints have not yet been written
+  * modules that must be compatible with Python 2 and 3
+
+--
+
+* have the same syntax as regular Python modules
+
+--
+
+* function bodies in stub files should be a single ellipsis (...)
+
+--
+
+* use the `.pyi` extension to make it possible to maintain stub files in the same directory as the corresponding real module
+
+--
+
+* mypy complains if it can’t find a stub (or a real module) for a library module that you import
+
+---
+class: with-title
+# Stub files
+
+```
+# math.pyi
+def acos(x: float) -> float: ...
+def modf(x: float) -> Tuple[float, float]: ...
+```
+
+???
+
+... instead of body
+
+... instead of default values
+
+@overload decorator allows describing functions and methods that support multiple different combinations of argument types.
+
+--
+
+```
+# relativedelta.pyi
+class weekday:
+    weekday = ...  # type: int
+    n = ...  # type: int
+
+class relativedelta:
+    def __init__(self, dt1: Optional[date]=..., dt2: Optional[date]=..., ...) -> None: ...
+
+    @overload
+    def __add__(self, other: 'relativedelta') -> 'relativedelta': ...
+
+    @overload
+    def __add__(self, other: timedelta) -> 'relativedelta': ...
+```
+
+---
+class: with-title
+# Stub files
+
+```
+# itertools.pyi
+from typing import Callable, Iterable, Iterator, overload, Tuple, TypeVar
+
+_T = TypeVar('_T')
+
+@overload
+def groupby(iterable: Iterable[_T]) -> Iterator[Tuple[_T, Iterator[_T]]]: ...
+
+@overload
+def groupby(
+  iterable: Iterable[_T],
+  key: Callable[[_T], _S]
+) -> Iterator[Tuple[_S, Iterator[_T]]]: ...
+```
+
+---
+class: with-title
+
+# Typeshed project
+
+
+* the easiest form of stub file storage and distribution is to put them alongside Python modules in the same directory
+
+???
+using mypy, there is no need to worry about typeshed - it's bundled into it
+
+--
+
+* but... package maintainers are free not to add type hinting to their packages
+
+--
+
+* typeshed: shared repository where useful stubs are being collected
+
+--
+
+* contains external type annotations for the Python standard library, Python builtins and third party packages
+
+--
+
+* a copy of typeshed is bundled with mypy!
+
+---
+class: with-title
+# Lessons learned
+
+
+* static type annotations improve readability
+
+???
+
+* we're using type hints from almost two year, but seriously since 1 year - before we just write type hints ocasionally and don't check them using mypy
+
+* we've catched several bugs that doesn't occur during unit tests but mypy revelaed them
+
+* if sth is impossible to define by type hints, maybe it's sign, that wrong data structure is used or it's too complicated
+
+--
+
+* source code is cleaner and easier to maintain
+
+--
+
+* mypy frequently catches bugs
+
+--
+
+* static typing enforced better data structures and better interfaces
+
+--
+
+* it does not work as gradual typing in existing project in our team
+
+--
+
+* worked only as strict, forced typing in new project
+
+---
+
+class: with-title
+# Lessons learned: Obstacles
+
+* cast - mypy not always recognize proper type
+
+```
+end = cast(date, date.today().replace(day=1) - relativedelta(days=1))
+start = cast(date, end - relativedelta(months=months_count))
+```
+
+--
+
+* Django (and more complex projects) is not supported
+
+--
+
+* `#type: ignore`
+
+```
+def get_queryset(self) -> QuerySet:
+   qs = super().get_queryset()  # type: ignore
+```
+
+```
+# object is Django model
+entity_id = self.object.entity.id  # type: ignore
+```
+
+
+???
+
+django - waiting for plugin architecture and metaclasses handling
+--
+
+* it's not part of the language - need to install external tools
+
+---
+class: with-title
+# Lessons learned: Obstacles
+
+* missing support for nested objects, especially JSON
+
+```
+JSON = Union[None, str, int, float, bool, List['JSON'], Dict[str, 'JSON']]
+```
+
+--
+
+* sometimes strict type hinting distrubs readability
+
+```
+def do_sth(x: Dict[str, Union[str, Tuple[str, dict]]]) -> None:
+  ...
+```
+
+```
+def get_notifications(self) -> Dict[
+  Service, Dict[NotificationGroup, Dict[NotificationPusher, List[Notification]]]
+]
+  ...
+```
+
+---
+class: with-title
+# Lessons learned: Example
+
+```
+from django import forms
+
+TYPE_TO_FIELD_MAPPER = {
+    int: forms.IntegerField,
+    IO[bytes]: forms.FileField
+}
+DEFAULT_FORM_FIELD = forms.CharField
+
+def create_form_from_annotations(annotations: dict) -> forms.Form:
+    form_attrs = {}
+    for name, type_ in annotations.items():
+        form_attrs[name] = TYPE_TO_FIELD_MAPPER.get(
+            type_, DEFAULT_FORM_FIELD
+        )()
+    return type('JobForm', (forms.Form,), form_attrs)
+```
+
+--
+
+```
+from typing.io import IO
+
+@task()
+def upload_user_records(username: str, age: int, records: IO[bytes]) -> None:
+    """
+    Upload records for the particular user at some age
+    """
+    # body
+```
+
+---
+class: with-title
+# Lessons learned: Example
+
+```
+form = create_form_from_annotations(upload_user_records.__annotations__)
+```
+
+--
+
+.center[![txt](typehintsform.png)]
+
+---
+class: with-title
+# Summary
+
+* static typing can make programs easier to understand and maintain.
+
+???
+Documentation is important as **code is typically read much more often than modified**, and this is especially important for large and complex programs.
+
+* Dynamic typing can be perfect for a small project or for writing the UI of your program, for example. As your program grows, you can adapt tricky application logic to static typing to help maintenance.
+
+* When its suitable?
+Your project is large or complex.
+Your codebase must be maintained for a long time.
+Multiple developers are working on the same code.
+Running tests takes a lot of time or work (type checking may help you find errors early in development, reducing the number of testing iterations).
+
+--
+
+* works in Python2 and Python 3
+
+--
+
+* gradual typing - easy to introduce step-by-step
+
+--
+
+* type declarations can serve as machine-checked documentation
+
+--
+
+* suitable for large projects
+
+--
+
+* benefits of both dynamic and static typing in a single language
+
+---
+
+class: center, middle, title-slide
+# Type hints: hate or love?
+
+???
+
+There is a religious war between people who think dynamic checking is better and people who think static type checking is better. I believe that one of the reasons why this war has gone on for so long is that both groups have good points.
+
+---
+background-image: url(workwithus2.jpg)
+
+
+---
+
+class: center, middle, title-slide
+# Q & A
+
+    </textarea>
+    <script src="static/remark.min.js" type="text/javascript">
+    </script>
+    <script type="text/javascript">
+      var slideshow = remark.create({
+        ratio: '4:3',
+        highlightLanguage: 'python',
+        highlightStyle: 'monokai',
+        countIncrementalSlides: false,
+        highlightLines: true,
+      });
+    </script>
+  </body>
+</html>
